@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      lang="en"
+      xml:lang="en"
+>
+<head>
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes" />
+<title>CSCB09 2022 Summer Assignment 2</title>
+<style type="text/css">
+h1, h2, h3 { color: blue; }
+dfn { font-style: normal; font-weight: bold; color: blue; }
+table { border-collapse: collapse; }
+th, td { border: 1px solid grey; padding: 0.2em 0.5em; }
+
+/* Code excerpts from loadable source files. */
+div.excerpt {
+  margin: 1em 0em 1em; /* top, left/right, bottom */
+}
+div.excerpt > span {
+  font-size: smaller;
+  background-color: #f0f0f0;
+  padding: 0.25em;
+}
+div.excerpt > pre {
+  background-color: #f0f0f0;
+  overflow: auto;
+  padding: 0.5em;
+  margin: 0px;
+}
+
+/* popup hidable table of contents, and the button to pop it up. */
+#tocdyn {
+  position: fixed;
+  width: 15em;
+  top: 0;
+  right: 0;
+  padding: 8px;
+  border-left: blue solid 1px;
+  border-bottom: blue solid 1px;
+  background-color: white;
+  color: black;
+  font-family: sans-serif;
+  visibility: hidden; /* initial value, to be overruled by javascript */
+}
+#tocbutton {
+  position: fixed;
+  top: 0;
+  right: 0;
+  opacity: 0.9;
+}
+#tocdyn > h1 {
+  font-size: 1em;
+  font-weight: bold;
+  margin-top: 0;
+}
+#tocdyn * {
+  text-align: left;
+}
+#tocdyn ul {
+  list-style-type: none;
+}
+#tocdyn > ul {
+  padding-left: 0;
+}
+#tocdyn > ul ul {
+  padding-left: 1em;
+}
+#tocdyn li {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+ul.task-list{list-style: none;}
+</style>
+<script type="text/javascript">
+function show_toc() {
+  document.getElementById("tocdyn").style.visibility = "visible";
+}
+function hide_toc() {
+  document.getElementById("tocdyn").style.visibility = "";
+}
+</script>
+</head>
+<body id="top">
+<header class="title">
+<h1 class="title">CSCB09 2022 Summer Assignment 2</h1>
+</header>
+<p>Due: Sunday, July 17, 11:59PM</p>
+<p>This assignment is worth 10% of the course grade.</p>
+<p>In this assignment, you will use fread, fwrite, and fseek to implement operations on fixed-length records in a binary data file.</p>
+<p>As usual, you should aim for reasonably efficient algorithms and reasonably organized, comprehensible code.</p>
+<h2 id="overview">Overview</h2>
+<p>The Solarbucks Tea Company maintains binary data files that have fixed-length records of customer names and loyalty points (called Solarcents). The two operations they need you to implement are looking up suncents and updating suncents of a customer.</p>
+<h2 id="filerecord-format">File/Record Format</h2>
+<p>Each record takes 32 bytes and conforms to this struct on x86-64 (in records.h):</p>
+<pre><code>typedef struct record {
+  unsigned suncents;       // 4 bytes on x86-64
+  unsigned char name_len;  // length of name
+  char name[27];           // name; NOT nul-terminated! use name_len above
+} record;</code></pre>
+<p>I need to emphasize again: The name field is not NUL-terminated like C strings! You must use <code>name_len</code> for its length. The unused space contains arbitrary data that you must ignore. When a name really uses all 27 bytes, if you don’t take care when writing a record, you risk corrupting another record.</p>
+<p>And yet! The functions you will implement take C NUL-terminated strings for input. You will need to find a simple way to bridge the gap.</p>
+<p>The data file is 0 or more records consecutively, and not sorted in any particular order. The provided sample.dat has 3 records. A good way to display it is <code>hexdump -C sample.dat</code>:</p>
+<pre><code>$ hexdump -C sample.dat 
+00000000  86 07 00 00 0e 44 65 6e  6e 69 73 20 52 69 74 63  |.....Dennis Ritc|
+00000010  68 69 65 2d 2d 2d 2d 2d  2d 2d 2d 2d 2d 2d 2d 2d  |hie-------------|
+00000020  22 01 00 00 0a 41 72 63  68 69 6d 65 64 65 73 2d  |&quot;....Archimedes-|
+00000030  2d 2d 2d 2d 2d 2d 2d 2d  2d 2d 2d 2d 2d 2d 2d 2d  |----------------|
+00000040  00 28 6b ee 0b 41 6c 61  6e 20 54 75 72 69 6e 67  |.(k..Alan Turing|
+00000050  2d 2d 2d 2d 2d 2d 2d 2d  2d 2d 2d 2d 2d 2d 2d 2d  |----------------|
+00000060</code></pre>
+<p>Leftmost column: file position (hexadecimal). Middle chunk: bytes in hexadecimal. Right column: bytes as characters, so whenever there should be a string, you can read it. It’s 16 bytes per line, nicely two lines (32 bytes) per record.</p>
+<p>Here are the records explained:</p>
+<ol type="1">
+<li><p>Name: <a href="https://en.wikipedia.org/wiki/Dennis_Ritchie">Dennis Ritchie</a> (length 14), 1926 suncents (hex 786, x86-64 stores multi-byte numbers in reverse byte order, the four bytes are 86, 07, 00, 00)</p></li>
+<li><p>Name: Archimedes (length 10), 290 suncents.</p></li>
+<li><p>Name: <a href="https://en.wikipedia.org/wiki/Alan_Turing">Alan Turing</a> (length 11), 4.000,000,000 suncents.</p></li>
+</ol>
+<h2 id="access-operations-to-implement">Access operations to implement</h2>
+<p>There are two access operations to implement (hand in records.c):</p>
+<pre><code>int get_suncents(FILE *f, const char *name, unsigned *psuncents);</code></pre>
+<p>Briefly: Get the suncents field from the record that has the given name. There are more conditions, especially how to store the answer, and what if there is no such record; see the comments in records.h.</p>
+<pre><code>void set_suncents(FILE *f, const char *name, unsigned suncents);</code></pre>
+<p>Briefly: Look for the record that has the given name, change the suncents field to the given number. If there is no such record, write a new one at the end of the file. There are more conditions, see the comments in records.h.</p>
+<p>In both cases, you may assume that <code>f</code> has already been open for both reading and writing. You may assume that the input names have at most 27 bytes (if not counting NUL termination).</p>
+<p>A sample user program sample-main.c is provided to read Ritchie’s suncents, add a new record for a new name, and change Archimedes’s suncents.</p>
+<p><strong>Important</strong>: If you can’t implement one of the functions, you must still provide it with an essentially empty body free of compile-time errors, like in the starter code. Otherwise I can’t test the other one you can implement. A simple test: You can build an executable from your file with sample-main.c.</p>
+<h2 id="error-handling">Error handling</h2>
+<p>Error handling is optional for simplicity. If you have debugging/error messages, send them to stderr.</p>
+</body>
+</html>

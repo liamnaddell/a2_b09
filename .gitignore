@@ -1,0 +1,4 @@
+./test
+./sample-main
+*.o
+infiles
