@@ -10,6 +10,7 @@ typedef struct record {
 } record;
 // record size conspires to be 32 bytes on x86-64 :)
 
+int get_record(FILE *f, const char *name, record *r);
 int get_suncents(FILE *f, const char *name, unsigned *psuncents);
 // In the file, get the suncents field of the record that has given name.
 //

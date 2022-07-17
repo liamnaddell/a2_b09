@@ -5,7 +5,7 @@ all: sample-main.o records.o
 
 test: tests.o records.o
 	$(CC) $(CFLAGS) $^ -o ./test
-	./test
+	-./test
 
 
 %o:%c

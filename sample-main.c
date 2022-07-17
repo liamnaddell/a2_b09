@@ -2,7 +2,7 @@
 #include "records.h"
 
 int main(void) {
-  FILE *f = fopen("sample.dat", "r+b");
+  FILE *f = fopen("data-in/sample.dat", "r+b");
   if (f == NULL) {
     perror("sample-main fopen");
     return 1;
