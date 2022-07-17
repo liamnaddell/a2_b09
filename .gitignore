@@ -1,4 +1,6 @@
-./test
-./sample-main
+test
+sample-main
 *.o
 infiles
+bt
+amogus.txt
