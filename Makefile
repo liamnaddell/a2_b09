@@ -7,6 +7,8 @@ test: tests.o records.o
 	$(CC) $(CFLAGS) $^ -o ./test
 	-./test
 
+setget: setget.o records.o
+	$(CC) $(CFLAG) $^ -o ./setget
 
 %o:%c
 	$(CC) $(CFLAGS) $< 
